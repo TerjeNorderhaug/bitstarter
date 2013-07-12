@@ -38,27 +38,21 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
-var getURL = function (htmlurl) {  
-  var value = "";
-  rest.get(htmlurl).on('complete', function(result) {
-    value = cheerio.load(result);
-  });
-  return value;
+var cheerioResource = function (htmlurl, check) { 
+    rest.get(htmlurl).on('complete', function(result) {
+          check(cheerio.load(result.toString()));
+    })
 }
 
-var cheerioResource = function (htmlurl) { 
-    return cheerio.load(function () {getURL(htmlURL)});
-}
-
-var cheerioHtmlFile = function(htmlfile) {
-     return cheerio.load(fs.readFileSync(htmlfile));
+var cheerioHtmlFile = function (htmlfile, check) {
+     check(cheerio.load(fs.readFileSync(htmlfile)));
 }    
 
-var loadChecks = function(checksfile) {
+var loadChecks = function (checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
-var checkHtmlFile = function(html, checksfile) {
+var checkHtmlFile = function (html, checksfile) {
     $ = html;
     var checks = loadChecks(checksfile).sort();
     var out = {};
@@ -81,14 +75,18 @@ if(require.main == module) {
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
         .option('-u, --url <url>', 'url to page', null, URL_DEFAULT)
         .parse(process.argv);
-    var checkJson;
-    if (program.url) {
-      checkJson = checkHtmlFile(cheerioResource(program.url), program.checks);
-    } else {
-      checkJson = checkHtmlFile(cheerioHtmlFile(program.file), program.checks);
+    var logJSON = function(checkJson) {
+       var outJson = JSON.stringify(checkJson, null, 4);
+       console.log(outJson);
     }
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    var checkHTML  = function (html) {
+       checkHtmlFile(html, program.checks);
+    }
+    if (program.url) {
+      cheerioResource(program.url, checkHTML);
+    } else {
+      cheerioHtmlFile(program.file, checkHTML);
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
